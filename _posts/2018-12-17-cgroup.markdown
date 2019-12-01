@@ -1,0 +1,107 @@
+---
+layout:     post
+title:      CGroup小笔记
+subtitle:   被CGroup坑的惨痛经历
+date:       2018-12-16
+author:     Skile
+header-img: img/post-bg-2015.jpg
+catalog: 	 true
+tags:
+    - CGroup
+    - Linux
+    - RedHat
+---
+
+> 本文以CentOS7为例
+
+## CGroup是什么
+
+CGroup是Control Groups的缩写，Red Hat的说明文档中译为控制组群。
+
+CGroup可以让用户为自定义设置的进程或进程组统一分配、管理、控制资源，例如CPU时间、内存限制、输入输出等。
+
+这些可以限制的资源被成为子系统(subsystem)。
+
+当创建一个CGroup实例时，必须至少指定一种子系统。
+
+也就是说，每一个CGroup进程组内的进程在访问子系统对应的系统资源时已经有了一些限制。
+
+CGroup在2007年进入Linux2.6.24内核当中，至于Red Hat是在Red Hat Enterprise Linux 6版本中加入的这个功能。
+
+## 为什么要CGroup
+
+很简单，因为现实中一切资源都是有限的。我们没有办法保证资源永远不用完，如果没有CGroup，也会有其他机制来做这个限制。总要有个唱黑脸的，在小船超重的时候丢个胖子下去，否则船沉了大家就都完了。
+
+## CGroup怎么用
+
+CGroup相关设置在`/sys/fs/cgroup`目录下
+
+该目录下会有诸多子系统：
+
+```
+> blkio -- 这个子系统为块设备设定输入输出限制，比如物理设备（磁盘，固态硬盘，USB 等等）。
+> cpu -- 这个子系统使用调度程序提供对 CPU 的 CGroup 任务访问。
+> cpuacct -- 这个子系统自动生成CGroup 中任务所使用的CPU报告。
+> cpuset -- 这个子系统为CGroup中的任务分配独立CPU（在多核系统）和内存节点。
+> devices -- 这个子系统可允许或者拒绝CGroup中的任务访问设备。
+> freezer -- 这个子系统挂起或者恢复CGroup中的任务。
+> memory -- 这个子系统设定CGroup中任务使用的内存限制，并自动生成由那些任务使用的内存资源报告。
+> net_cls -- 这个子系统使用等级识别符（classid）标记网络数据包，可允许Linux流量控制程序（tc）识别从具体CGroup中生成的数据包。
+> ns -- 名称空间子系统。
+```
+
+例如我要进入内存相关设置，就进入
+
+`/sys/fs/cgroup/memory/你要进入的进程组/`
+
+该目录会有以下文件：
+
+```
+> cgroup.event_control       #用于eventfd的接口
+> memory.usage_in_bytes      #显示当前已用的内存
+> memory.limit_in_bytes      #设置/显示当前限制的内存额度
+> memory.failcnt             #显示内存使用量达到限制值的次数
+> memory.max_usage_in_bytes  #历史内存最大使用量
+> memory.soft_limit_in_bytes #设置/显示当前限制的内存软额度
+> memory.stat                #显示当前cgroup的内存使用情况
+> memory.use_hierarchy       #设置/显示是否将子cgroup的内存使用情况统计到当前cgroup里面
+> memory.force_empty         #触发系统立即尽可能的回收当前cgroup中可以回收的内存
+> memory.pressure_level      #设置内存压力的通知事件，配合cgroup.event_control一起使用
+> memory.swappiness          #设置和显示当前的swappiness
+> memory.move_charge_at_immigrate #设置当进程移动到其他cgroup中时，它所占用的内存是否也随着移动过去
+> memory.oom_control         #设置/显示oom controls相关的配置
+> memory.numa_stat           #显示numa相关的内存
+> tasks                      #关联的进程PID
+```
+
+最简单的，你只需要对memory.limit_in_bytes设置一个大小，然后在tasks中写入你要管控的进程的PID。
+
+那么这个进程和他所有的子进程的内存上限就都不会超过你设定的值。
+
+注意这个目录下面还有一个名为memory.oom_control的文件。这是OOM Killer的开关，如果值为0，表示OOM Killer是开启的，默认设置就是这样。
+
+当这个进程组申请的资源股超过设置的上限时，就会被OOM Killer杀死。
+
+如果该值为1，则表示OOM Killer关闭，同样情况，系统则会选择阻塞到有足够的资源为止。
+
+最后还有一件事情需要告诉你，CGroup跟进程一样，可以有树的关系，不过不是进程树，姑且可以叫做资源树。
+
+使用systemd-cgls可以看到所有CGroup的树状关系图。（关于systemd的相关知识计划后续推出）
+
+子CGroup可以有自己的资源限制，但是同样也受父CGroup的总资源的限制。
+
+如果要创建，只需要在父CGroup的文件夹中，把子CGroup的文件夹放进去就可以了。
+
+---
+
+## 参考
+
+如果你需要更多关于Red Hat版本下的CGroup机制更详细的规则与说明，请<a href="https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/6/html/resource_management_guide/" target="_blank">点击这里</a>。
+
+如果你想要了解Linux对CGroup的定义，<a href="https://www.kernel.org/doc/Documentation/cgroup-v1/" target="_blank">请点击这里</a>。
+
+如果你需要CGroup的内核源码分析，请参阅<a href="https://blog.csdn.net/eleven_xiy/article/details/76602245" target="_blank">这篇文章</a>。
+
+如果你需要对CGroup机制写代码做实验，那么相信<a href="https://www.cnblogs.com/yanghuahui/p/3751826.html" target="_blank">这篇文章</a>能够帮助到你。
+
+<a href="https://coolshell.cn/articles/17049.html" target="_blank">这篇文章</a>最后有提到下一代的CGroup机制，可能会是什么样的，写的也非常棒。

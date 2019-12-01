@@ -1,0 +1,127 @@
+---
+layout:     post
+title:      初识Systemd
+subtitle:   入门篇
+date:       2019-1-6
+author:     Skile
+header-img: img/post-bg-2015.jpg
+catalog: 	 true
+tags:
+    - Systemd
+    - init
+    - Linux
+---
+
+## Systemd是什么
+
+systemd是Linux计算机操作系统之下的一套中央化系统及设置管理程序（init），包括有守护进程、程序库以及应用软件，由Lennart Poettering带头开发。
+
+根据 Linux 惯例，字母d是守护进程（daemon）的缩写。 Systemd 这个名字的含义，就是它要守护整个系统。
+
+它主要的设计目标是克服sysvinit固有的缺点，提高系统的启动速度。
+
+随着计算机软硬件技术的发展，init系统也在不断的发展变化中。
+
+所以Systemd和Ubuntu的upstart其实是竞争对手，但是时至今日Ubuntu也采用了Systemd，所以现在行业内大致的趋势是sysvinit->upstart->Systemd。
+
+## Systemd的优点
+
+Systemd的优点是功能强大，使用方便，缺点是过于臃肿复杂，和操作系统其他部分强耦合。
+
+![Systemd架构图](http://www.ruanyifeng.com/blogimg/asset/2016/bg2016030703.png "Systemd架构图")
+
+上图是Systemd架构图
+
+Systemd既然能够成为行业的选择，自然有很多过人之处，Systemd有以下优点：
+
+### 同SysVinit和LSB init scripts兼容
+
+良好的兼容性使得Systemd更易于被推广，毕竟为了上这个而把系统中已经存在的所有服务和进程代码全改一遍是基本不可能实现的。
+
+### 更快的启动速度
+
+为了减少系统启动时间，Systemd的目标就是：
+
+- 尽可能启动更少的进程
+
++ 尽可能把更多进程并行启动
+
+![SysVinit和UpStart的启动示意图](https://www.ibm.com/developerworks/cn/linux/1407_liuming_init3/image003.jpg "UpStart和SysVinit的启动示意图")
+
+上图是SysVinit和UpStart的启动示意图
+
+![Systemd选择并发启动](https://www.ibm.com/developerworks/cn/linux/1407_liuming_init3/image005.jpg "Systemd选择并发启动")
+
+上图是Systemd的并发启动示意图
+
+### Systemd提供按需启动能力
+
+当sysvinit系统初始化的时候，它会将所有可能用到的后台服务进程全部启动运行。并且系统必须等待所有的服务都启动就绪之后，才允许用户登录。
+
+Systemd可以提供按需启动的能力，只有在某个服务被真正请求的时候才启动它。当该服务结束Systemd可以关闭它，等待下次需要时再次启动它。
+
+这样可以加快启动速度，并且避免系统资源浪费。
+
+### Systemd采用Linux的CGroup特性跟踪和管理进程的生命周期
+
+Systemd利用了Linux内核的特性中的CGroup来完成跟踪进程的任务。
+
+当需要停止一个服务时，通过查询该进程的CGroup，Systemd可以确保找到所有的相关进程，从而干净、优雅地停止服务。
+
+与之前进程多次fork之后init有可能找错进程pid的情况相比，因为CGroup在创建子进程时，子进程会继承父进程的CGroup。因此无论进程fork多少次，CGroup都能够简单、准确的找到所有相关的进程。
+
+### 启动挂载点和自动挂载的管理
+
+传统的Linux系统中，用户可以用`/etc/fstab`文件来维护固定的文件系统挂载点。
+
+这些挂载点在系统启动过程中被自动挂载，一旦启动过程结束，这些挂载点就会确保存在。
+
+Systemd会管理这些挂载点，以便能够在系统启动时自动挂载它们。
+
+Systemd还兼容`/etc/fstab`文件，让用户可以继续使用该文件管理挂载点。
+
+有时候用户还需要动态挂载点，比如打算访问DVD内容时，才临时执行挂载以便访问其中的内容，而不访问光盘时该挂载点被取消(umount)，以便节约资源。
+
+Systemd内建了自动挂载服务，无需另外安装，可以直接使用Systemd提供的自动挂载管理能力来实现和autofs服务（一种自动挂载服务）一样的功能。
+
+### 实现事务性依赖关系管理
+
+为了加快启动速度，Systemd会最大限度地并发执行很多工作，包括具有依赖关系的工作。但是对于存在必须先后依赖的，无法并行执行的情况，Systemd还是会维护一个“事物一致性”的概念，保证所有相关服务都可以正常启动，而不会因为互相依赖出现死锁的情况。
+
+### 能够对系统进行快照和恢复
+
+Systemd支持按需启动，因此系统的运行状态是动态变化的，人们无法准确地知道系统当前运行了哪些服务。
+
+Systemd快照提供了一种将当前系统运行状态保存并恢复的能力。
+
+### 日志服务
+
+现有的syslog服务有以下缺点：
+
+- syslog不安全，消息的内容无法验证。每一个本地进程都可以声称自己是Apache PID 4711，而syslog也就相信并保存到磁盘上。
+
++ 数据没有严格的格式，非常随意。自动化的日志分析器需要分析人类语言字符串来识别消息。一方面此类分析困难低效；此外日志格式的变化会导致分析代码需要更新甚至重写。
+
+Systemd Journal就是为了克服这些缺点而诞生的。
+
+它用二进制格式保存所有日志信息，用户使用journalctl命令来查看日志信息。
+
+无需自己编写复杂脆弱的字符串分析处理程序。
+
+---
+
+Systemd系统过于复杂庞大，一篇文章不足以将其说清楚，
+
+所以Systemd的概念、机制，以及怎么用，也就是Systemd命令，请听下回分解。
+
+---
+
+## 参考
+
+<a href="https://www.ibm.com/developerworks/cn/linux/1407_liuming_init3/index.html" target="_blank">浅析 Linux 初始化 init 系统，第 3 部分 Systemd</a>
+
+<a href="http://www.cnblogs.com/sparkdev/p/8448237.html" target="_blank">初识 systemd - sparkdev - 博客园</a>。
+
+<a href="http://www.ruanyifeng.com/blog/2016/03/systemd-tutorial-commands.html" target="_blank">Systemd 入门教程：命令篇 - 阮一峰的网络日志</a>。
+
+<a href="http://www.jinbuguo.com/systemd/systemd.html" target="_blank">systemd 中文手册 [金步国]</a>。

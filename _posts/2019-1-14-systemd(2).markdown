@@ -1,0 +1,110 @@
+---
+layout:     post
+title:      Systemd的概念与基本操作方法
+subtitle:   进阶篇
+date:       2019-1-6
+author:     Skile
+header-img: img/post-bg-2015.jpg
+catalog: 	 true
+tags:
+    - Systemd
+    - init
+    - Linux
+---
+
+## Systemd的基本概念
+
+### 单元
+
+系统初始化需要做的事情非常多。
+
+需要启动后台服务，比如启动SSHD服务；需要做配置工作，比如挂载文件系统。
+
+这个过程中的每一步都被systemd抽象为一个配置单元，即unit。
+
+可以认为一个服务是一个配置单元；一个挂载点是一个配置单元；一个交换分区的配置是一个配置单元等等。
+
+systemd 将配置单元归纳为以下一些不同的类型。
+
+然而，systemd 正在快速发展，新功能不断增加。
+
+所以配置单元类型可能在不久的将来继续增加。
+
+- service ：代表一个后台服务进程，比如mysqld。这是最常用的一类。
++ socket ：此类配置单元封装系统和互联网中的一个套接字。当下，Systemd支持流式、数据报和连续包的AF_INET、AF_INET6、AF_UNIX socket。每一个套接字配置单元都有一个相应的服务配置单元 。相应的服务在第一个"连接"进入套接字时就会启动(例如：nscd.socket在有新连接后便启动nscd.service)。
+- device ：此类配置单元封装一个存在于Linux设备树中的设备。每一个使用udev规则标记的设备都将会在Systemd中作为一个设备配置单元出现。
++ mount ：此类配置单元封装文件系统结构层次中的一个挂载点。Systemd将对这个挂载点进行监控和管理。比如可以在启动时自动将其挂载；可以在某些条件下自动卸载。Systemd会将/etc/fstab中的条目都转换为挂载点，并在开机时处理。
+- automount ：此类配置单元封装系统结构层次中的一个自挂载点。每一个自挂载配置单元对应一个挂载配置单元 ，当该自动挂载点被访问时，systemd执行挂载点中定义的挂载行为。
++ swap: 和挂载配置单元类似，交换配置单元用来管理交换分区。用户可以用交换配置单元来定义系统中的交换分区，可以让这些交换分区在启动时被激活。
+- target ：此类配置单元为其他配置单元进行逻辑分组。它们本身实际上并不做什么，只是引用其他配置单元而已。这样便可以对配置单元做一个统一的控制。这样就可以实现大家都已经非常熟悉的运行级别概念。比如想让系统进入图形化模式，需要运行许多服务和配置命令，这些操作都由一个个的配置单元表示，将所有这些配置单元组合为一个目标(target)，就表示需要将这些配置单元全部执行一遍以便进入目标所代表的系统运行状态。 (例如：multi-user.target相当于在传统使用SysV的系统中运行级别 5)
++ timer：定时器配置单元用来定时触发用户定义的操作，这类配置单元取代了atd、crond等传统的定时服务。
+- snapshot ：与target配置单元相似，快照是一组配置单元。它保存了系统当前的运行状态。
+
+每个配置单元都有一个对应的配置文件，系统管理员的任务就是编写和维护这些不同的配置文件，比如一个 MySQL 服务对应一个mysql.service文件。
+
+这种配置文件的语法非常简单，用户不需要再编写和维护复杂的系统脚本了。
+
+### 依赖关系
+
+为了能够并发启动大部分进程或工作，Systemd已经解耦了大量进程或工作间的依赖。
+
+但还是存在有些任务，它们之间存在天生的依赖没办法解除掉。
+
+比如：挂载操作必须等待挂载点在文件系统中被创建；挂载也必须等待相应的物理设备就绪。
+
+为了解决这类依赖问题，Systemd的配置单元之间可以彼此定义依赖关系。
+
+Systemd用配置单元定义文件中的关键字来描述配置单元之间的依赖关系。
+比如：unit A依赖unit B，可以在unit B的定义中用"require A"来表示。这样Systemd就会保证先启动A再启动B。
+
+## 如何使用Systemd
+
+Systemd功能非常丰富，针对不同技术人员的角色，Systemd的使用也不同。
+
+例如操作系统的开发人员，就需要编写配置单元文件；而对于系统管理员，就只要使用Systemd命令就可以了。
+
+本文主要介绍Systemd命令的使用方法，对于Systemd其他的指令集暂不描述。
+
+### Systemd命令
+
+Systemd不是一个命令，而是一组命令，设计整个系统管理的方方面面。
+
+常用的init系统管理命令如下：
+
++ systemctl start foo.service 用来启动一个服务 (并不会重启现有的)
+- systemctl stop foo.service 用来停止一个服务 (并不会重启现有的)
++ systemctl restart foo.service 用来停止并启动一个服务
+- systemctl reload foo.service 当支持时，重新装载配置文件而不中断等待操作
++ systemctl condrestart foo.service 如果服务正在运行那么重启它
+- systemctl status foo.service 汇报服务是否正在运行
++ systemctl list-unit-files --type=service 用来列出可以启动或停止的服务列表
+- systemctl enable foo.service 在下次启动时或满足其他触发条件时设置服务为启用
++ systemctl disable foo.service 在下次启动时或满足其他触发条件时设置服务为禁用
+- systemctl is-enabled foo.service 用来检查一个服务在当前环境下被配置为启用还是禁用
++ systemctl list-unit-files --type=service 输出在各个运行级别下服务的启用和禁用情况
+- ls /etc/systemd/system/*.wants/foo.service 用来列出该服务在哪些运行级别下启用和禁用
++ systemctl daemon-reload 当您创建新服务文件或者变更设置时使用
+- systemctl isolate multi-user.target (OR systemctl isolate runlevel3.target OR telinit 3 改变至多用户运行级别
++ systemctl reboot 重启系统
+- systemctl poweroff 退出系统并关闭电源
++ systemctl suspend 进入待机状态
+- systemctl hibernate 进入休眠状态
++ systemctl hybrid-sleep 混合休眠模式（同时休眠到硬盘并待机）
+
+如需要查找除了常用命令以外的命令，可以通过查看<a href="https://www.freedesktop.org/software/systemd/man/" target="_blank">Systemd man文档</a>。
+
+---
+
+## 参考
+
+<a href="https://www.ibm.com/developerworks/cn/linux/1407_liuming_init3/index.html" target="_blank">浅析 Linux 初始化 init 系统，第 3 部分 Systemd</a>
+
+<a href="http://www.cnblogs.com/sparkdev/p/8448237.html" target="_blank">初识 systemd - sparkdev - 博客园</a>。
+
+<a href="http://www.ruanyifeng.com/blog/2016/03/systemd-tutorial-commands.html" target="_blank">Systemd 入门教程：命令篇 - 阮一峰的网络日志</a>。
+
+<a href="http://www.jinbuguo.com/systemd/systemd.html" target="_blank">systemd 中文手册 [金步国]</a>。
+
+<a href="https://wiki.archlinux.org/index.php/Systemd_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)#%E4%BD%BF%E7%94%A8%E5%8D%95%E5%85%83" target="_blank">systemd (简体中文) - ArchWiki</a>。
+
+<a href="https://fedoraproject.org/wiki/Systemd/zh-cn" target="_blank">Systemd/zh-cn - Fedora Project Wiki</a>。
