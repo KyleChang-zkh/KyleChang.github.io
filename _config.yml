@@ -78,7 +78,7 @@ netease_comment: false
 
 # Sidebar settings
 sidebar: true                           # whether or not using Sidebar.
-sidebar-about-description: "道阻且长"
+sidebar-about-description: "你要乐观 有趣 善良"
 sidebar-avatar: /img/avatar-zkh.png      # use absolute URL, seeing it's used in both `/` and `/about/`
 
 
