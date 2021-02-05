@@ -3,7 +3,7 @@ layout:     post
 title:      CGroup小笔记
 subtitle:   被CGroup坑的惨痛经历
 date:       2018-12-16
-author:     Skile
+author:     Kyle
 header-img: img/post-bg-2015.jpg
 catalog: 	 true
 tags:
