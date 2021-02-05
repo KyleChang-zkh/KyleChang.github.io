@@ -3,7 +3,7 @@ layout:     post
 title:      OOM-Killer机制
 subtitle:   上次还没被CGroup坑完呢
 date:       2018-12-24
-author:     Skile
+author:     Kyle
 header-img: img/post-bg-2015.jpg
 catalog: 	 true
 tags:
