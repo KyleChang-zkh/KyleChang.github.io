@@ -3,7 +3,7 @@ layout:     post
 title:      Systemd的概念与基本操作方法
 subtitle:   进阶篇
 date:       2019-1-6
-author:     Skile
+author:     Kyle
 header-img: img/post-bg-2015.jpg
 catalog: 	 true
 tags:
