@@ -1,9 +1,9 @@
 ---
 layout:     post
-title:      iPhone的系统更新模式对全球一朵云的思考
+title:      iPhone的系统更新模式跟公有云有什么关系？
 subtitle:   iPhone的版本管理是怎么做的？
 date:       2019-1-27
-author:     Skile
+author:     Kyle
 header-img: img/post-bg-2015.jpg
 catalog: 	 true
 tags:
